@@ -244,7 +244,7 @@ int CameraState::sensors_init() {
     probe->expected_data = 0x354;
   } else if (camera_id == CAMERA_ID_OX03C10) {
     probe->reg_addr = 0x300a;
-    probe->expected_data = 0x5803;
+    probe->expected_data = 0x5304;
   } else {
     assert(false);
   }
