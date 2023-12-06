@@ -40,6 +40,7 @@ class CarController:
     self.packer = CANPacker(dbc_name)
     self.gas = 0
     self.accel = 0
+    self.direction = 'left'
 
   def update(self, CC, CS, now_nanos):
     actuators = CC.actuators
@@ -68,11 +69,12 @@ class CarController:
       apply_steer_req = False
       if self.frame % 2 == 0:
         # EPS uses the torque sensor angle to control with, offset to compensate
-        apply_angle = CS.out.steeringAngleOffsetDeg
         if CS.out.leftBlinker:
-          apply_angle = MAX_LTA_ANGLE + CS.out.steeringAngleOffsetDeg
+          self.direction = 'left'
         elif CS.out.rightBlinker:
-          apply_angle = -MAX_LTA_ANGLE + CS.out.steeringAngleOffsetDeg
+          self.direction = 'right'
+        apply_angle = (MAX_LTA_ANGLE + CS.out.steeringAngleOffsetDeg if self.direction == 'left' else
+                       -MAX_LTA_ANGLE + CS.out.steeringAngleOffsetDeg)
 
         # Angular rate limit based on speed
         apply_angle = apply_std_steer_angle_limits(apply_angle, self.last_angle, CS.out.vEgoRaw, self.params)
