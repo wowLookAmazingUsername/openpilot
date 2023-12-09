@@ -41,6 +41,7 @@ class CarState(CarStateBase):
     self.angle_offset = FirstOrderFilter(None, 60.0, DT_CTRL, initialized=False)
 
     self.low_speed_lockout = False
+    self.soft_disable = False
     self.acc_type = 1
     self.lkas_hud = {}
 
@@ -126,6 +127,12 @@ class CarState(CarStateBase):
       ret.cruiseState.speedCluster = cluster_set_speed * conversion_factor
 
     cp_acc = cp_cam if self.CP.carFingerprint in (TSS2_CAR - RADAR_ACC_CAR) else cp
+
+    # Check if ACC module is requesting to disengage if stock longitudinal
+    if not self.CP.openpilotLongitudinalControl and not self.CP.flags & ToyotaFlags.DISABLE_RADAR.value and \
+       not self.CP.flags & ToyotaFlags.SMART_DSU.value:
+      # TODO: log in CS and add alert
+      self.soft_disable = cp_acc.vl["ACC_CONTROL"]["CANCEL_REQ"] == 1
 
     if self.CP.carFingerprint in TSS2_CAR and not self.CP.flags & ToyotaFlags.DISABLE_RADAR.value:
       if not (self.CP.flags & ToyotaFlags.SMART_DSU.value):
