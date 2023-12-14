@@ -15,6 +15,8 @@ ENV LC_ALL en_US.UTF-8
 COPY tools/install_ubuntu_dependencies.sh /tmp/tools/
 RUN cd /tmp && \
     tools/install_ubuntu_dependencies.sh && \
+    # install PortableCL for running modeld and simulator within docker
+    apt install -y pocl-opencl-icd && \
     rm -rf /var/lib/apt/lists/* && \
     rm -rf /tmp/* && \
     # remove unused architectures from gcc for panda

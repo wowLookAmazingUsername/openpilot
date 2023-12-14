@@ -14,7 +14,6 @@ concurrency:
 env:
   PYTHONWARNINGS: error
   BASE_IMAGE: openpilot-base
-  CL_BASE_IMAGE: openpilot-base-cl
   AZURE_TOKEN: ${{ secrets.AZURE_COMMADATACI_OPENPILOTCI_TOKEN }}
 
   DOCKER_LOGIN: docker login ghcr.io -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
@@ -185,8 +184,6 @@ jobs:
       uses: codecov/codecov-action@v3
       with:
         name: ${{ github.job }}
-      env:
-        CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   process_replay:
     name: process replay
@@ -234,8 +231,6 @@ jobs:
       uses: codecov/codecov-action@v3
       with:
         name: ${{ github.job }}
-      env:
-        CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   regen:
     name: regen
@@ -253,8 +248,6 @@ jobs:
         key: regen-${{ hashFiles('.github/workflows/selfdrive_tests.yaml', 'selfdrive/test/process_replay/test_regen.py') }}
     - name: Build base Docker image
       run: eval "$BUILD"
-    - name: Build Docker image
-      run: eval "$BUILD_CL"
     - name: Build openpilot
       run: |
         ${{ env.RUN }} "scons -j$(nproc)"
@@ -272,11 +265,6 @@ jobs:
       with:
         submodules: true
     - uses: ./.github/workflows/setup-with-retry
-    - name: Build base Docker image
-      run: eval "$BUILD"
-    - name: Build Docker image
-      # Sim docker is needed to get the OpenCL drivers
-      run: eval "$BUILD_CL"
     - name: Build openpilot
       run: |
         ${{ env.RUN }} "scons -j$(nproc)"
@@ -284,10 +272,10 @@ jobs:
     - name: Run model replay with ONNX
       timeout-minutes: 4
       run: |
-        ${{ env.RUN_CL }} "unset PYTHONWARNINGS && \
-                           ONNXCPU=1 CI=1 NO_NAV=1 coverage run selfdrive/test/process_replay/model_replay.py && \
-                           coverage combine && \
-                           coverage xml"
+        ${{ env.RUN }} "unset PYTHONWARNINGS && \
+                        ONNXCPU=1 CI=1 NO_NAV=1 coverage run selfdrive/test/process_replay/model_replay.py && \
+                        coverage combine && \
+                        coverage xml"
     - name: Run unit tests
       timeout-minutes: 4
       run: |
@@ -297,8 +285,6 @@ jobs:
       uses: codecov/codecov-action@v3
       with:
         name: ${{ github.job }}
-      env:
-        CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   test_cars:
     name: cars
@@ -332,8 +318,6 @@ jobs:
       uses: codecov/codecov-action@v3
       with:
         name: ${{ github.job }}-${{ matrix.job }}
-      env:
-        CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   car_docs_diff:
     name: PR comments
