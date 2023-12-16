@@ -71,9 +71,11 @@ CameraInfo cameras_supported[CAMERA_ID_MAX] = {
     .frame_stride = FRAME_STRIDE, // (0xa80*12//8)
     //.frame_stride = 0xfc0, // (0xa80*12//8)
 
+    /*
     .bayer = true,
     .bayer_flip = 1,
     .hdr = false,
+    */
   },
 };
 
@@ -585,7 +587,7 @@ void CameraState::enqueue_buffer(int i, bool dp) {
     // wait
     struct cam_sync_wait sync_wait = {0};
     sync_wait.sync_obj = sync_objs[i];
-    sync_wait.timeout_ms = 50; // max dt tolerance, typical should be 23
+    sync_wait.timeout_ms = 1000; // max dt tolerance, typical should be 23
     ret = do_cam_control(multi_cam_state->cam_sync_fd, CAM_SYNC_WAIT, &sync_wait, sizeof(sync_wait));
     if (ret != 0) {
       LOGE("failed to wait for sync: %d %d", ret, sync_wait.sync_obj);

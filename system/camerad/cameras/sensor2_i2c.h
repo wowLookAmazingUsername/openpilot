@@ -64,7 +64,7 @@ struct i2c_random_wr_payload init_array_os04c10[] = {
 
   // MIPI PCLK period (broken with 0xe stock, MIPI/PHY = 1440/180 = 8)
   // this makes output happen
-  {0x4837, 0x8}
+  {0x4837, 0x8},
 
   // data type
   {0x4814, 0x2B},
