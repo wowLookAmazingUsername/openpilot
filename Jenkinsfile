@@ -192,6 +192,16 @@ node {
       ])
     }
 
+    deviceStage("tizi", "tizi", ["UNSAFE=1"], [
+      ["test pandad", "pytest selfdrive/boardd/tests/test_pandad.py", ["panda/", "selfdrive/boardd/"]],
+      ["test qcomgpsd", "pytest system/qcomgpsd/tests/test_qcomgpsd.py", ["system/qcomgpsd/"]],
+      ["build openpilot", "cd selfdrive/manager && ./build.py"],
+      ["test boardd loopback", "SINGLE_PANDA=1 pytest selfdrive/boardd/tests/test_boardd_loopback.py"],
+      ["test amp", "pytest system/hardware/tici/tests/test_amplifier.py"],
+      ["test hw", "pytest system/hardware/tici/tests/test_hardware.py"],
+    ])
+
+
     if (!env.BRANCH_NAME.matches(excludeRegex)) {
     parallel (
       // tici tests
