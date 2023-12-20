@@ -144,8 +144,11 @@ def hasDirectoryChanged(List<String> paths) {
     println "Inspecting changeSet: ${change}"
 
     for (item in change.items) {
+      println "Inspecting item: ${item}"
       for (affectedPath in item.affectedPaths) {
+        println "Affected path: ${affectedPath}"
         for (path in paths) {
+          println "Checking against path: ${path}"
           if (affectedPath.startsWith(path)) {
             return true
           }
