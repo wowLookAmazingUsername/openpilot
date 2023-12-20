@@ -141,6 +141,8 @@ def setupCredentials() {
 
 def hasDirectoryChanged(List<String> paths) {
   for (change in currentBuild.changeSets) {
+    println "Inspecting changeSet: ${change}"
+
     for (item in change.items) {
       for (affectedPath in item.affectedPaths) {
         for (path in paths) {
@@ -240,18 +242,18 @@ node {
       },
       'replay': {
         deviceStage("tici", "tici-replay", ["UNSAFE=1"], [
-          ["build", "cd selfdrive/manager && ./build.py"],
           ["model replay", "selfdrive/test/process_replay/model_replay.py", ["tinygrad/", "selfdrive/modeld/"]],
+          ["build", "cd selfdrive/manager && ./build.py"],
         ])
       },
       'tizi': {
         deviceStage("tizi", "tizi", ["UNSAFE=1"], [
+          ["test pandad", "pytest selfdrive/boardd/tests/test_pandad.py", ["panda/", "selfdrive/boardd/"]],
+          ["test qcomgpsd", "pytest system/qcomgpsd/tests/test_qcomgpsd.py", ["system/qcomgpsd/"]],
           ["build openpilot", "cd selfdrive/manager && ./build.py"],
           ["test boardd loopback", "SINGLE_PANDA=1 pytest selfdrive/boardd/tests/test_boardd_loopback.py"],
-          ["test pandad", "pytest selfdrive/boardd/tests/test_pandad.py", ["panda/", "selfdrive/boardd/"]],
           ["test amp", "pytest system/hardware/tici/tests/test_amplifier.py"],
           ["test hw", "pytest system/hardware/tici/tests/test_hardware.py"],
-          ["test qcomgpsd", "pytest system/qcomgpsd/tests/test_qcomgpsd.py", ["system/qcomgpsd/"]],
         ])
       },
 
