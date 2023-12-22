@@ -7,7 +7,7 @@ from openpilot.common.params import Params
 from openpilot.common.basedir import BASEDIR
 from openpilot.system.version import is_comma_remote, is_tested_branch
 from openpilot.selfdrive.car.interfaces import get_interface_attr
-from openpilot.selfdrive.car.fingerprints import eliminate_incompatible_cars, all_legacy_fingerprint_cars
+from openpilot.selfdrive.car.fingerprints import eliminate_incompatible_cars, all_legacy_fingerprint_cars, FW_VERSIONS
 from openpilot.selfdrive.car.vin import get_vin, is_valid_vin, VIN_UNKNOWN
 from openpilot.selfdrive.car.fw_versions import get_fw_versions_ordered, get_present_ecus, match_fw_to_car, set_obd_multiplexing
 from openpilot.common.swaglog import cloudlog
@@ -121,44 +121,40 @@ def can_fingerprint(next_can: Callable) -> Tuple[Optional[str], Dict[int, dict]]
 def fingerprint(logcan, sendcan, num_pandas):
   fixed_fingerprint = os.environ.get('FINGERPRINT', "")
   skip_fw_query = os.environ.get('SKIP_FW_QUERY', False)
-  disable_fw_cache = os.environ.get('DISABLE_FW_CACHE', False)
+  disable_car_params_prev = os.environ.get('DISABLE_CAR_PARAMS_PREV', False)
   ecu_rx_addrs = set()
   params = Params()
 
   start_time = time.monotonic()
+  vin, vin_rx_addr = VIN_UNKNOWN, 0
+  exact_fw_match, fw_candidates, car_fw = True, set(), []
+  cached = False
+
   if not skip_fw_query:
     # Vin query only reliably works through OBDII
     bus = 1
 
-    cached_params = params.get("CarParamsCache")
-    if cached_params is not None:
-      with car.CarParams.from_bytes(cached_params) as cached_params:
-        if cached_params.carName == "mock":
-          cached_params = None
-
-    if cached_params is not None and len(cached_params.carFw) > 0 and \
-       cached_params.carVin is not VIN_UNKNOWN and not disable_fw_cache:
-      cloudlog.warning("Using cached CarParams")
-      vin, vin_rx_addr = cached_params.carVin, 0
-      car_fw = list(cached_params.carFw)
-      cached = True
-    else:
-      cloudlog.warning("Getting VIN & FW versions")
-      set_obd_multiplexing(params, True)
-      vin_rx_addr, vin = get_vin(logcan, sendcan, bus)
-      ecu_rx_addrs = get_present_ecus(logcan, sendcan, num_pandas=num_pandas)
-      car_fw = get_fw_versions_ordered(logcan, sendcan, ecu_rx_addrs, num_pandas=num_pandas)
-      cached = False
-
+    cloudlog.warning("Getting VIN & FW versions")
+    set_obd_multiplexing(params, True)
+    vin_rx_addr, vin = get_vin(logcan, sendcan, bus)
+    if vin_rx_addr != 0 and not is_valid_vin(vin):
+      cloudlog.event("Malformed VIN", vin=vin, error=True)
+      vin = VIN_UNKNOWN
+    ecu_rx_addrs = get_present_ecus(logcan, sendcan, num_pandas=num_pandas)
+    car_fw = get_fw_versions_ordered(logcan, sendcan, ecu_rx_addrs, num_pandas=num_pandas)
     exact_fw_match, fw_candidates = match_fw_to_car(car_fw)
-  else:
-    vin, vin_rx_addr = VIN_UNKNOWN, 0
-    exact_fw_match, fw_candidates, car_fw = True, set(), []
-    cached = False
 
-  if not is_valid_vin(vin):
-    cloudlog.event("Malformed VIN", vin=vin, error=True)
-    vin = VIN_UNKNOWN
+  if not exact_fw_match and not disable_car_params_prev:
+    car_params_prev = params.get("CarParamsPersistent")
+    if car_params_prev is not None:
+      with car.CarParams.from_bytes(car_params_prev) as car_params_prev:
+        if car_params_prev.carVin is not VIN_UNKNOWN and car_params_prev.carVin == vin \
+            and len(car_params_prev.carFw) > 0 and not car_params_prev.fuzzyFingerprint \
+            and car_params_prev.carName in FW_VERSIONS:
+          cloudlog.warning("Using previous CarParams")
+          exact_fw_match, fw_candidates = True, {car_params_prev.carName}
+          cached = True
+
   cloudlog.warning("VIN %s", vin)
   params.put("CarVin", vin)
 
