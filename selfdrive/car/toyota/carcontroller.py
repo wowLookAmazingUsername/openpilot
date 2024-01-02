@@ -1,4 +1,5 @@
 from cereal import car
+from openpilot.common.filter_simple import FirstOrderFilter
 from openpilot.common.numpy_fast import clip, interp
 from openpilot.selfdrive.car import apply_meas_steer_torque_limits, apply_std_steer_angle_limits, common_fault_avoidance, \
                           create_gas_interceptor_command, make_can_msg
@@ -40,6 +41,9 @@ class CarController:
     self.packer = CANPacker(dbc_name)
     self.gas = 0
     self.accel = 0
+
+    self.delayed_accel = FirstOrderFilter(0, 0.5, 0.01, initialized=False)
+    self.delayed_derivative = FirstOrderFilter(0, 0.5, 0.01, initialized=False)
 
   def update(self, CC, CS, now_nanos):
     actuators = CC.actuators
@@ -114,7 +118,19 @@ class CarController:
       interceptor_gas_cmd = clip(pedal_command, 0., MAX_INTERCEPTOR_GAS)
     else:
       interceptor_gas_cmd = 0.
-    pcm_accel_cmd = clip(actuators.accel, self.params.ACCEL_MIN, self.params.ACCEL_MAX)
+
+    if not CC.longActive:
+      self.delayed_accel.reset(0, initialized=False)
+      self.delayed_derivative.reset(0, initialized=False)
+      pcm_accel_cmd = 0.0
+    else:
+      self.delayed_accel.update(actuators.accel)
+      derivative = actuators.accel - self.delayed_accel.x
+
+      self.delayed_derivative.update(derivative)
+      pcm_accel_cmd = actuators.accel - (self.delayed_derivative.x - derivative) * 2.0
+
+    pcm_accel_cmd = clip(pcm_accel_cmd, self.params.ACCEL_MIN, self.params.ACCEL_MAX)
 
     # TODO: probably can delete this. CS.pcm_acc_status uses a different signal
     # than CS.cruiseState.enabled. confirm they're not meaningfully different

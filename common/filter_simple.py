@@ -6,6 +6,10 @@ class FirstOrderFilter:
     self.update_alpha(rc)
     self.initialized = initialized
 
+  def reset(self, x0, initialized=True):
+    self.x = x0
+    self.initialized = initialized
+
   def update_alpha(self, rc):
     self.alpha = self.dt / (rc + self.dt)
 
