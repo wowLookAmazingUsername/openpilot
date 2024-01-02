@@ -42,8 +42,8 @@ class CarController:
     self.gas = 0
     self.accel = 0
 
-    self.delayed_accel = FirstOrderFilter(0, 0.5, 0.01, initialized=False)
-    self.delayed_derivative = FirstOrderFilter(0, 0.5, 0.01, initialized=False)
+    self.accel_filter = FirstOrderFilter(0, 0.5, 0.01, initialized=False)
+    self.derivative_filter = FirstOrderFilter(0, 0.5, 0.01, initialized=False)
 
   def update(self, CC, CS, now_nanos):
     actuators = CC.actuators
@@ -120,15 +120,15 @@ class CarController:
       interceptor_gas_cmd = 0.
 
     if not CC.longActive:
-      self.delayed_accel.reset(0, initialized=False)
-      self.delayed_derivative.reset(0, initialized=False)
+      self.accel_filter.reset(0, initialized=False)
+      self.derivative_filter.reset(0, initialized=False)
       pcm_accel_cmd = 0.0
     else:
-      self.delayed_accel.update(actuators.accel)
-      derivative = actuators.accel - self.delayed_accel.x
+      self.accel_filter.update(actuators.accel)
+      derivative = actuators.accel - self.accel_filter.x  # high passed accel
 
-      self.delayed_derivative.update(derivative)
-      pcm_accel_cmd = actuators.accel - (self.delayed_derivative.x - derivative) * 2.0
+      self.derivative_filter.update(derivative)
+      pcm_accel_cmd = actuators.accel - (self.derivative_filter.x - derivative) * 2.0
 
     pcm_accel_cmd = clip(pcm_accel_cmd, self.params.ACCEL_MIN, self.params.ACCEL_MAX)
 
