@@ -471,7 +471,8 @@ class TestCarModelBase(unittest.TestCase):
     if CI:
       raise Exception
 
-  @pytest.mark.skipif(not CI, reason="When running in CI we want to make sure all the routes are uploaded to the preserved CI bucket.")
+  # @pytest.mark.skipif(not CI, reason="When running in CI we want to make sure all the routes are uploaded to the preserved CI bucket.")
+  @unittest.skipIf(not CI, reason="When running in CI we want to make sure all the routes are uploaded to the preserved CI bucket.")
   def test_route_on_ci_bucket(self):
     assert self.test_route_on_bucket, "Route not on CI bucket. \
                                        This is fine to fail for WIP car ports, just let us know and we can upload your routes to the CI bucket."
