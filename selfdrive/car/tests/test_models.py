@@ -467,9 +467,9 @@ class TestCarModelBase(unittest.TestCase):
     failed_checks = {k: v for k, v in checks.items() if v > 0}
     self.assertFalse(len(failed_checks), f"panda safety doesn't agree with openpilot: {failed_checks}")
 
-  def test_ci(self):
-    if CI:
-      raise Exception
+  # def test_ci(self):
+  #   if CI:
+  #     raise Exception
 
   # @pytest.mark.skipif(not CI, reason="When running in CI we want to make sure all the routes are uploaded to the preserved CI bucket.")
   @unittest.skipIf(not CI, reason="When running in CI we want to make sure all the routes are uploaded to the preserved CI bucket.")
