@@ -254,4 +254,27 @@ FW_VERSIONS = {
       b'M2421132MB',
     ],
   },
+  CAR.DURANGO: {
+    (Ecu.combinationMeter, 0x742, None): [
+      b'68471535AE',
+    ],
+    (Ecu.srs, 0x744, None): [
+      b'68492238AD',
+    ],
+    (Ecu.abs, 0x747, None): [
+      b'68499978AB',
+    ],
+    (Ecu.fwdRadar, 0x753, None): [
+      b'68440581AE',
+    ],
+    (Ecu.eps, 0x75a, None): [
+      b'68498477AA',
+    ],
+    (Ecu.engine, 0x7e0, None): [
+      b'05035786AE ',
+    ],
+    (Ecu.transmission, 0x7e1, None): [
+      b'05035826AC',
+    ],
+  },
 }
