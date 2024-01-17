@@ -1,3 +1,4 @@
+import bz2
 import os
 import time
 
@@ -8,7 +9,7 @@ from openpilot.common.params import Params
 from openpilot.selfdrive.manager.process_config import managed_processes
 from openpilot.system.hardware import PC
 from openpilot.system.version import training_version, terms_version
-from openpilot.tools.lib.logreader import LogIterable
+from openpilot.tools.lib.logreader import LogIterable, LogReader
 
 
 def set_params_enabled():
@@ -88,3 +89,10 @@ PRESERVE_SERVICES = ["can", "carParams", "pandaStates", "pandaStateDEPRECATED"]
 
 def sanitize(lr: LogIterable) -> LogIterable:
   return filter(lambda msg: msg.which() in PRESERVE_SERVICES, lr)
+
+def apply_to_log(data: bytes, func) -> bytes:
+  lr = func(LogReader.from_bytes(data))
+  new_bytes = b""
+  for msg in lr:
+    new_bytes += msg.as_builder().to_bytes()
+  return bz2.compress(new_bytes)
