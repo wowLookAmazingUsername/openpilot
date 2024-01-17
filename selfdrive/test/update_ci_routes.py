@@ -42,7 +42,6 @@ def sync_to_ci_public(route: str) -> bool:
 
   print(f"Uploading {route}")
   # Get all blobs (rlogs) for this route, strip personally identifiable data, and upload to CI
-  print(f"Downloading {route}")
   source_key = None
   for source in SOURCES:
     source_container, key = source.get_client_and_key()
