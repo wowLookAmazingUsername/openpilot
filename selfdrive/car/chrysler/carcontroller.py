@@ -1,5 +1,4 @@
 import math
-from collections import deque
 
 from cereal import car
 from opendbc.can.packer import CANPacker
@@ -60,8 +59,6 @@ class CarController:
 
     self.packer = CANPacker(dbc_name)
     self.params = CarControllerParams(CP)
-
-    self.gas_history = deque(maxlen=15)
 
   def update(self, CC, CS, now_nanos):
     can_sends = []
@@ -133,13 +130,9 @@ class CarController:
       if long_active:
         pitch = CC.orientationNED[1] if len(CC.orientationNED) > 1 else 0
         drag_force = calc_drag_force(CS.engine_torque, CS.transmission_gear, pitch, CS.out.aEgo, CS.out.vEgo)
-        gas_next = clip(calc_engine_torque(accel, pitch, CS.transmission_gear, drag_force), self.params.GAS_MIN, self.params.GAS_MAX)
-        self.gas_history.appendleft(gas_next)
-        gas = sum(self.gas_history) / self.gas_history.maxlen
+        gas = clip(calc_engine_torque(accel, pitch, CS.transmission_gear, drag_force), self.params.GAS_MIN, self.params.GAS_MAX)
         if gas <= self.params.GAS_MIN+1 or accel < 0.1:
           brakes = min(accel, 0)
-      else:
-        self.gas_history.clear()
 
       can_sends.extend(chryslercan.create_acc_commands(self.packer, long_active, gas, brakes, starting, stopping))
 
