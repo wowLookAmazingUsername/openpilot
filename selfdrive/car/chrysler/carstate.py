@@ -55,7 +55,7 @@ class CarState(CarStateBase):
       ret.vEgoRaw = (cp.vl["SPEED_1"]["SPEED_LEFT"] + cp.vl["SPEED_1"]["SPEED_RIGHT"]) / 2.
       ret.gearShifter = self.parse_gear_shifter(self.shifter_values.get(cp.vl["GEAR"]["PRNDL"], None))
     ret.vEgo, ret.aEgo = self.update_speed_kf(ret.vEgoRaw)
-    ret.standstill = not ret.vEgoRaw > 0.001
+    ret.standstill = cp.vl["ESP_8"]["Vehicle_Stopped"]
     ret.wheelSpeeds = self.get_wheel_speeds(
       cp.vl["ESP_6"]["WHEEL_SPEED_FL"],
       cp.vl["ESP_6"]["WHEEL_SPEED_FR"],
@@ -85,7 +85,8 @@ class CarState(CarStateBase):
       ret.cruiseState.enabled = False
       ret.cruiseState.nonAdaptive = False
       ret.cruiseState.standstill = False
-      ret.accFaulted = False
+      # TODO: not really a fault (relies DAS_3.ACC_AVAILABLE=1), maybe bits 38/39 is what we want?
+      ret.accFaulted = cp.vl["ESP_1"]["ACC_Enabled"] == 0
     else:
       ret.cruiseState.available = cp_cruise.vl["DAS_3"]["ACC_AVAILABLE"] == 1
       ret.cruiseState.enabled = cp_cruise.vl["DAS_3"]["ACC_ACTIVE"] == 1

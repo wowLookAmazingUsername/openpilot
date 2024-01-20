@@ -120,21 +120,20 @@ class CarController:
 
     # longitudinal
     if self.CP.openpilotLongitudinalControl and (self.frame % self.params.ACC_CONTROL_STEP) == 0:
-      long_active = CC.longActive
       accel = clip(CC.actuators.accel, self.params.ACCEL_MIN, self.params.ACCEL_MAX)
       starting = CS.out.vEgo < 0.25 and accel > 0.0 # TODO: use LongCtrlState.starting with disabled startAccel?
       stopping = CC.actuators.longControlState == LongCtrlState.stopping
 
       gas = self.params.INACTIVE_GAS
       brakes = self.params.INACTIVE_ACCEL
-      if long_active:
+      if CC.enabled and CC.longActive:
         pitch = CC.orientationNED[1] if len(CC.orientationNED) > 1 else 0
         drag_force = calc_drag_force(CS.engine_torque, CS.transmission_gear, pitch, CS.out.aEgo, CS.out.vEgo)
         gas = clip(calc_engine_torque(accel, pitch, CS.transmission_gear, drag_force), self.params.GAS_MIN, self.params.GAS_MAX)
-        if gas <= self.params.GAS_MIN+1 or accel < 0.1:
+        if gas <= self.params.GAS_MIN+1 or accel < 0.25:
           brakes = min(accel, 0)
 
-      can_sends.extend(chryslercan.create_acc_commands(self.packer, long_active, gas, brakes, starting, stopping))
+      can_sends.extend(chryslercan.create_acc_commands(self.packer, CC.enabled, CC.longActive, gas, brakes, starting, stopping))
 
     self.frame += 1
 

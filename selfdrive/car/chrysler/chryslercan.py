@@ -71,22 +71,24 @@ def create_cruise_buttons(packer, frame, bus, cancel=False, resume=False):
   }
   return packer.make_can_msg("CRUISE_BUTTONS", bus, values)
 
-def create_acc_commands(packer, long_active, gas, brakes, starting, stopping):
+def create_acc_commands(packer, enabled, long_active, gas, brakes, starting, stopping):
   commands = []
 
   das_3_values = {
     'ACC_AVAILABLE': 1,
-    'ACC_ACTIVE': long_active,
-    'ACC_DECEL_REQ': brakes < 0.0,
+    'ACC_ACTIVE': enabled,
+    'ACC_DECEL_REQ': brakes < 0.0 if long_active else 0,
     'ACC_DECEL': brakes,
-    'ENGINE_TORQUE_REQUEST_MAX': gas > 0.0,
+    'ENGINE_TORQUE_REQUEST_MAX': brakes >= 0.0 if long_active else 0,
     'ENGINE_TORQUE_REQUEST': gas,
-    'ACC_STANDSTILL': stopping,
-    'ACC_GO': starting,
-    # TODO: does this improve fuel economy?
-    'DISABLE_FUEL_SHUTOFF': long_active,
+    'ACC_STANDSTILL': stopping if long_active else 0,
+    'ACC_GO': starting if long_active else 0,
+    # TODO: does this have any impact on fuel economy when engine braking?
+    # TODO: does this disable auto engine start/stop?
+    'DISABLE_FUEL_SHUTOFF': 1,
     # TODO: does this have any impact on ACC braking responsiveness?
-    'ACC_BRK_PREP': brakes < 0.0,
+    # TODO: does this cause a fault if set for too long?
+    #'ACC_BRK_PREP': brakes < 0.5 if enabled else 0,
     # TODO: does this have any impact on ACC braking responsiveness?
     #'COLLISION_BRK_PREP': ?,
   }
