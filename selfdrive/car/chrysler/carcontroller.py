@@ -87,7 +87,7 @@ class CarController:
                                                      self.hud_count, CS.lkas_car_model, CS.auto_high_beam))
         self.hud_count += 1
         if self.CP.openpilotLongitudinalControl:
-          can_sends.append(chryslercan.create_acc_hud(self.packer, 4 if CC.longActive else 0, CC.hudControl.setSpeed))
+          can_sends.append(chryslercan.create_acc_hud(self.packer, CC.enabled, CC.hudControl.setSpeed))
 
     # steering
     if self.frame % self.params.STEER_STEP == 0:

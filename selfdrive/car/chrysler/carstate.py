@@ -87,7 +87,7 @@ class CarState(CarStateBase):
       ret.cruiseState.standstill = False
       # TODO: not really a fault (and somewhat late)
       # TODO: doesn't cover gas only disabled (sometimes gas is disabled and brakes still work)
-      ret.accFaulted = cp.vl["ESP_1"]["ACC_OFF_REQ"] == 2
+      ret.accFaulted = cp.vl["ESP_1"]["ACC_OFF_REQ"] == 2 or cp.vl["ECM_2"]["ACC_TORQUE_REQ_ENABLE"] == 0
     else:
       ret.cruiseState.available = cp_cruise.vl["DAS_3"]["ACC_AVAILABLE"] == 1
       ret.cruiseState.enabled = cp_cruise.vl["DAS_3"]["ACC_ACTIVE"] == 1
@@ -130,6 +130,8 @@ class CarState(CarStateBase):
   def get_can_parser(CP):
     messages = [
       # sig_address, frequency
+      ("ECM_1", 100),
+      ("ECM_2", 50),
       ("ESP_1", 50),
       ("EPS_2", 100),
       ("ESP_6", 50),
@@ -149,7 +151,6 @@ class CarState(CarStateBase):
     if CP.carFingerprint in RAM_CARS:
       messages += [
         ("EPS_3", 50),
-        ("ECM_1", 100),
         ("TCM_1", 50),
         ("Transmission_Status", 50),
       ]

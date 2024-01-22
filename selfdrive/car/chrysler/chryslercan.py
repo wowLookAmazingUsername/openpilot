@@ -102,14 +102,14 @@ def create_acc_commands(packer, enabled, long_active, gas, brakes, starting, sto
 
   return commands
 
-def create_acc_hud(packer, long_active, set_speed):
+def create_acc_hud(packer, enabled, set_speed):
   values = {
     "SPEED_DIGITAL": 197, # TODO: rename, this is actually distance to lead, check if pacifica is same
-    "ACC_STATE": 4 if long_active else 3,
+    "ACC_STATE": 4 if enabled else 3, # 4 = ACC set, 3 = ACC on
     "ACC_SET_SPEED_KPH": round(set_speed * CV.MS_TO_KPH),
     "ACC_SET_SPEED_MPH": round(set_speed * CV.MS_TO_MPH),
-    "ACC_DISTANCE_CONFIG_1": 0,
-    "ACC_DISTANCE_CONFIG_2": 3 if long_active else 1,
+    "ACC_DISTANCE_CONFIG_1": 0, # not sure what this is
+    "ACC_DISTANCE_CONFIG_2": 3 if enabled else 0, # not sure what this is
     "FCW_OFF": 1,
     "FCW_BRAKE_DISABLED": 1,
   }
