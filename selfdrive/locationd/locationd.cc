@@ -691,10 +691,9 @@ int Localizer::locationd_thread() {
 
   this->configure_gnss_source(source);
   const std::initializer_list<const char *> service_list = {gps_location_socket, "cameraOdometry", "liveCalibration",
-                                                          "carState", "carParams", "accelerometer", "gyroscope"};
+                                                          "carState", "accelerometer", "gyroscope"};
 
-  // TODO: remove carParams once we're always sending at 100Hz
-  SubMaster sm(service_list, {}, nullptr, {gps_location_socket, "carParams"});
+  SubMaster sm(service_list, {}, nullptr, {gps_location_socket});
   PubMaster pm({"liveLocationKalman"});
 
   uint64_t cnt = 0;
@@ -719,15 +718,14 @@ int Localizer::locationd_thread() {
     }
 
     // 100Hz publish for notcars, 20Hz for cars
-    const char* trigger_msg = sm["carParams"].getCarParams().getNotCar() ? "accelerometer" : "cameraOdometry";
-    if (sm.updated(trigger_msg)) {
+    if (sm.updated("cameraOdometry")) {
       bool inputsOK = sm.allValid() && this->are_inputs_ok();
       bool gpsOK = this->is_gps_ok();
       bool sensorsOK = sm.allAliveAndValid({"accelerometer", "gyroscope"});
 
       // Log time to first fix
       if (gpsOK && std::isnan(this->ttff) && !std::isnan(this->first_valid_log_time)) {
-        this->ttff = std::max(1e-3, (sm[trigger_msg].getLogMonoTime() * 1e-9) - this->first_valid_log_time);
+        this->ttff = std::max(1e-3, (sm["cameraOdometry"].getLogMonoTime() * 1e-9) - this->first_valid_log_time);
       }
 
       MessageBuilder msg_builder;
