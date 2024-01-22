@@ -95,8 +95,8 @@ def create_acc_commands(packer, enabled, long_active, gas, brakes, starting, sto
   commands.append(packer.make_can_msg("DAS_3", 0, das_3_values))
 
   das_5_values = {
-    "FCW_STATE": 0x1,
-    "FCW_DISTANCE": 0x2,
+    "FCW_STATE": 0, # off
+    "FCW_DISTANCE": 0, # off
   }
   commands.append(packer.make_can_msg("DAS_5", 0, das_5_values))
 
