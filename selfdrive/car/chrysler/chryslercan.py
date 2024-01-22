@@ -110,5 +110,7 @@ def create_acc_hud(packer, long_active, set_speed):
     "ACC_SET_SPEED_MPH": round(set_speed * CV.MS_TO_MPH),
     "ACC_DISTANCE_CONFIG_1": 0,
     "ACC_DISTANCE_CONFIG_2": 3 if long_active else 1,
+    "FCW_OFF": 1,
+    "FCW_BRAKE_DISABLED": 1,
   }
   return packer.make_can_msg("DAS_4", 0, values)
