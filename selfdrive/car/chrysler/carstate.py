@@ -85,8 +85,9 @@ class CarState(CarStateBase):
       ret.cruiseState.enabled = False
       ret.cruiseState.nonAdaptive = False
       ret.cruiseState.standstill = False
-      # TODO: not really a fault (relies DAS_3.ACC_AVAILABLE=1), maybe bits 38/39 is what we want?
-      ret.accFaulted = cp.vl["ESP_1"]["ACC_Enabled"] == 0
+      # TODO: not really a fault (and somewhat late)
+      # TODO: doesn't cover gas only disabled (sometimes gas is disabled and brakes still work)
+      ret.accFaulted = cp.vl["ESP_1"]["ACC_OFF_REQ"] == 2
     else:
       ret.cruiseState.available = cp_cruise.vl["DAS_3"]["ACC_AVAILABLE"] == 1
       ret.cruiseState.enabled = cp_cruise.vl["DAS_3"]["ACC_ACTIVE"] == 1
@@ -111,6 +112,7 @@ class CarState(CarStateBase):
     self.lkas_car_model = cp_cam.vl["DAS_6"]["CAR_MODEL"]
     self.button_counter = cp.vl["CRUISE_BUTTONS"]["COUNTER"]
     self.engine_torque = cp.vl["ECM_1"]["ENGINE_TORQUE"]
+    ret.parkingBrake = cp.vl["EPB_1"]["PARKING_BRAKE_STATUS"] != 0
     # TODO: need for vehicles other than RAM DT
     self.transmission_gear = int(cp.vl["TCM_1"]["ACTUAL_GEAR"])
 
@@ -135,6 +137,7 @@ class CarState(CarStateBase):
       ("STEERING", 100),
       ("ECM_5", 50),
       ("CRUISE_BUTTONS", 50),
+      ("EPB_1", 25),
       ("STEERING_LEVERS", 10),
       ("ORC_1", 2),
       ("BCM_1", 1),

@@ -56,6 +56,7 @@ class CarController:
     self.last_lkas_falling_edge = 0
     self.lkas_control_bit_prev = False
     self.last_button_frame = 0
+    self.last_gas = 0
 
     self.packer = CANPacker(dbc_name)
     self.params = CarControllerParams(CP)
@@ -80,7 +81,7 @@ class CarController:
         can_sends.append(chryslercan.create_cruise_buttons(self.packer, CS.button_counter + 1, das_bus, resume=True))
 
     # HUD alerts
-    if self.frame % 25 == 0:
+    if self.frame % 6 == 0:
       if CS.lkas_car_model != -1:
         can_sends.append(chryslercan.create_lkas_hud(self.packer, self.CP, lkas_active, CC.hudControl.visualAlert,
                                                      self.hud_count, CS.lkas_car_model, CS.auto_high_beam))
@@ -121,16 +122,24 @@ class CarController:
     # longitudinal
     if self.CP.openpilotLongitudinalControl and (self.frame % self.params.ACC_CONTROL_STEP) == 0:
       accel = clip(CC.actuators.accel, self.params.ACCEL_MIN, self.params.ACCEL_MAX)
-      starting = CS.out.vEgo < 0.25 and accel > 0.0 # TODO: use LongCtrlState.starting with disabled startAccel?
-      stopping = CC.actuators.longControlState == LongCtrlState.stopping
 
+      starting = False
+      stopping = False
       gas = self.params.INACTIVE_GAS
       brakes = self.params.INACTIVE_ACCEL
-      if CC.enabled and CC.longActive:
+      if not CC.enabled:
+        self.last_gas = 0
+
+      if CC.longActive:
+        starting = CS.out.vEgo < 0.25 and accel > 0.0 # TODO: use CC.actuators.longControlState == LongCtrlState.starting with disabled startAccel?
+        stopping = CS.out.vEgo < 0.25 and accel <= 0.0 # TODO: use CC.actuators.longControlState == LongCtrlState.stopping
+
         pitch = CC.orientationNED[1] if len(CC.orientationNED) > 1 else 0
         drag_force = calc_drag_force(CS.engine_torque, CS.transmission_gear, pitch, CS.out.aEgo, CS.out.vEgo)
         gas = clip(calc_engine_torque(accel, pitch, CS.transmission_gear, drag_force), self.params.GAS_MIN, self.params.GAS_MAX)
-        if gas <= self.params.GAS_MIN+1 or accel < 0.25:
+        gas = min(gas, self.last_gas + 1)
+        self.last_gas = max(gas, 0)
+        if accel < -0.1:
           brakes = min(accel, 0)
 
       can_sends.extend(chryslercan.create_acc_commands(self.packer, CC.enabled, CC.longActive, gas, brakes, starting, stopping))
