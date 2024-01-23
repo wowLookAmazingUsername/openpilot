@@ -42,26 +42,26 @@ jobs:
       run: |
         ${{ env.RUN }} "pytest tools/plotjuggler/"
 
-  simulator:
-    name: simulator
+  simulator_bridge:
+    name: simulator bridge test
     runs-on: ubuntu-20.04
-    if: github.repository == 'commaai/openpilot'
-    timeout-minutes: 45
+    timeout-minutes: 20
     steps:
     - uses: actions/checkout@v4
       with:
         submodules: true
+    - run: git lfs pull
     - uses: ./.github/workflows/setup-with-retry
+    - name: Build base docker image
+      run: eval "$BUILD"
     - name: Build base cl image
       run: eval "$BUILD_CL"
-    - name: Setup to push to repo
-      if: github.ref == 'refs/heads/master' && github.repository == 'commaai/openpilot'
+    - name: Build openpilot
       run: |
-        echo "PUSH_IMAGE=true" >> "$GITHUB_ENV"
-        $DOCKER_LOGIN
-    - name: Build and push sim image
+        ${{ env.RUN }} "scons -j$(nproc)"
+    - name: Run bridge test
       run: |
-        selfdrive/test/docker_build.sh sim
+        ${{ env.RUN_CL }} "source selfdrive/test/setup_xvfb.sh && source selfdrive/test/setup_vsound.sh && pytest tools/sim/tests/test_metadrive_bridge.py"
 
   devcontainer:
     name: devcontainer
