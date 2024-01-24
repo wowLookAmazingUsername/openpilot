@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 import bz2
+from functools import partial
+import multiprocessing
 import capnp
 import enum
-import itertools
 import numpy as np
 import os
 import pathlib
@@ -11,16 +12,19 @@ import sys
 import urllib.parse
 import warnings
 
-from typing import Iterable, Iterator
+from typing import Iterable, Iterator, List, Type
 from urllib.parse import parse_qs, urlparse
 
 from cereal import log as capnp_log
-from openpilot.selfdrive.test.openpilotci import get_url
-from openpilot.tools.lib.filereader import FileReader
+from openpilot.common.swaglog import cloudlog
+from openpilot.tools.lib.comma_car_segments import get_url as get_comma_segments_url
+from openpilot.tools.lib.openpilotci import get_url
+from openpilot.tools.lib.filereader import FileReader, file_exists
 from openpilot.tools.lib.helpers import RE
 from openpilot.tools.lib.route import Route, SegmentRange
 
-LogIterable = Iterable[capnp._DynamicStructReader]
+LogMessage = Type[capnp._DynamicStructReader]
+LogIterable = Iterable[LogMessage]
 
 
 class _LogFileReader:
@@ -68,8 +72,8 @@ class _LogFileReader:
 class ReadMode(enum.StrEnum):
   RLOG = "r" # only read rlogs
   QLOG = "q" # only read qlogs
-  #AUTO = "a" # default to rlogs, fallback to qlogs, not supported yet
-
+  AUTO = "a" # default to rlogs, fallback to qlogs
+  AUTO_INTERACIVE = "i" # default to rlogs, fallback to qlogs with a prompt from the user
 
 def create_slice_from_string(s: str):
   m = re.fullmatch(RE.SLICE, s)
@@ -83,56 +87,98 @@ def create_slice_from_string(s: str):
     return start
   return slice(start, end, step)
 
+def auto_strategy(rlog_paths, qlog_paths, interactive):
+  # auto select logs based on availability
+  if any(rlog is None or not file_exists(rlog) for rlog in rlog_paths):
+    if interactive:
+      if input("Some rlogs were not found, would you like to fallback to qlogs for those segments? (y/n) ").lower() != "y":
+        return rlog_paths
+    else:
+      cloudlog.warning("Some rlogs were not found, falling back to qlogs for those segments...")
+
+    return [rlog if (rlog is not None and file_exists(rlog)) else (qlog if (qlog is not None and file_exists(qlog)) else None)
+                                                                for (rlog, qlog) in zip(rlog_paths, qlog_paths, strict=True)]
+  return rlog_paths
+
+def apply_strategy(mode: ReadMode, rlog_paths, qlog_paths):
+  if mode == ReadMode.RLOG:
+    return rlog_paths
+  elif mode == ReadMode.QLOG:
+    return qlog_paths
+  elif mode == ReadMode.AUTO:
+    return auto_strategy(rlog_paths, qlog_paths, False)
+  elif mode == ReadMode.AUTO_INTERACIVE:
+    return auto_strategy(rlog_paths, qlog_paths, True)
+
 def parse_slice(sr: SegmentRange):
-  route = Route(sr.route_name)
-  segs = np.arange(route.max_seg_number+1)
   s = create_slice_from_string(sr._slice)
-  return segs[s] if isinstance(s, slice) else [segs[s]]
+  if isinstance(s, slice):
+    if s.stop is None or s.stop < 0 or (s.start is not None and s.start < 0): # we need the number of segments in order to parse this slice
+      segs = np.arange(sr.get_max_seg_number()+1)
+    else:
+      segs = np.arange(s.stop + 1)
+    return segs[s]
+  else:
+    if s < 0:
+      s = sr.get_max_seg_number() + s + 1
+    return [s]
 
-def comma_api_source(sr: SegmentRange, mode=ReadMode.RLOG, sort_by_time=False):
+def comma_api_source(sr: SegmentRange, mode: ReadMode):
   segs = parse_slice(sr)
+
   route = Route(sr.route_name)
 
-  log_paths = route.log_paths() if mode == ReadMode.RLOG else route.qlog_paths()
+  rlog_paths = [route.log_paths()[seg] for seg in segs]
+  qlog_paths = [route.log_paths()[seg] for seg in segs]
 
-  invalid_segs = [seg for seg in segs if log_paths[seg] is None]
+  return apply_strategy(mode, rlog_paths, qlog_paths)
 
-  assert not len(invalid_segs), f"Some of the requested segments are not available: {invalid_segs}"
-
-  for seg in segs:
-    yield _LogFileReader(log_paths[seg], sort_by_time=sort_by_time)
-
-def internal_source(sr: SegmentRange, mode=ReadMode.RLOG, sort_by_time=False):
+def internal_source(sr: SegmentRange, mode: ReadMode):
   segs = parse_slice(sr)
 
-  for seg in segs:
-    yield _LogFileReader(f"cd:/{sr.dongle_id}/{sr.timestamp}/{seg}/{'rlog' if mode == ReadMode.RLOG else 'qlog'}.bz2", sort_by_time=sort_by_time)
+  def get_internal_url(sr: SegmentRange, seg, file):
+    return f"cd:/{sr.dongle_id}/{sr.timestamp}/{seg}/{file}.bz2"
 
-def openpilotci_source(sr: SegmentRange, mode=ReadMode.RLOG, sort_by_time=False):
+  rlog_paths = [get_internal_url(sr, seg, "rlog") for seg in segs]
+  qlog_paths = [get_internal_url(sr, seg, "qlog")  for seg in segs]
+
+  return apply_strategy(mode, rlog_paths, qlog_paths)
+
+def openpilotci_source(sr: SegmentRange, mode: ReadMode):
   segs = parse_slice(sr)
 
-  for seg in segs:
-    yield _LogFileReader(get_url(sr.route_name, seg, 'rlog' if mode == ReadMode.RLOG else 'qlog'), sort_by_time=sort_by_time)
+  rlog_paths = [get_url(sr.route_name, seg, "rlog") for seg in segs]
+  qlog_paths = [get_url(sr.route_name, seg, "qlog")  for seg in segs]
 
-def direct_source(file_or_url, sort_by_time):
-  yield _LogFileReader(file_or_url, sort_by_time=sort_by_time)
+  return apply_strategy(mode, rlog_paths, qlog_paths)
 
-def auto_source(*args, **kwargs):
+def comma_car_segments_source(sr: SegmentRange, mode=ReadMode.RLOG):
+  segs = parse_slice(sr)
+
+  return [get_comma_segments_url(sr.route_name, seg) for seg in segs]
+
+def direct_source(file_or_url):
+  return [file_or_url]
+
+def get_invalid_files(files):
+  return [f for f in files if f is None or not file_exists(f)]
+
+def check_source(source, *args):
+  try:
+    files = source(*args)
+    assert len(get_invalid_files(files)) == 0
+    return True, files
+  except Exception:
+    return False, None
+
+def auto_source(*args):
   # Automatically determine viable source
+  for source in [internal_source, openpilotci_source]:
+    valid, ret = check_source(source, *args)
+    if valid:
+      return ret
 
-  try:
-    next(internal_source(*args, **kwargs))
-    return internal_source(*args, **kwargs)
-  except Exception:
-    pass
-
-  try:
-    next(openpilotci_source(*args, **kwargs))
-    return openpilotci_source(*args, **kwargs)
-  except Exception:
-    pass
-
-  return comma_api_source(*args, **kwargs)
+  return comma_api_source(*args)
 
 def parse_useradmin(identifier):
   if "useradmin.comma.ai" in identifier:
@@ -161,42 +207,61 @@ def parse_indirect(identifier):
 
 
 class LogReader:
-  def _logreaders_from_identifier(self, identifier):
+  def _parse_identifiers(self, identifier: str | List[str]):
+    if isinstance(identifier, list):
+      return [i for j in identifier for i in self._parse_identifiers(j)]
+
     parsed, source, is_indirect = parse_indirect(identifier)
 
     if not is_indirect:
       direct_parsed = parse_direct(identifier)
       if direct_parsed is not None:
-        return direct_source(identifier, sort_by_time=self.sort_by_time)
+        return direct_source(identifier)
 
     sr = SegmentRange(parsed)
     mode = self.default_mode if sr.selector is None else ReadMode(sr.selector)
     source = self.default_source if source is None else source
 
-    return source(sr, mode, sort_by_time=self.sort_by_time)
+    return source(sr, mode)
 
-  def __init__(self, identifier: str, default_mode=ReadMode.RLOG, default_source=auto_source, sort_by_time=False):
+  def __init__(self, identifier: str | List[str], default_mode=ReadMode.RLOG, default_source=auto_source, sort_by_time=False, only_union_types=False):
     self.default_mode = default_mode
     self.default_source = default_source
-    self.sort_by_time = sort_by_time
     self.identifier = identifier
+
+    self.sort_by_time = sort_by_time
+    self.only_union_types = only_union_types
 
     self.reset()
 
   def __iter__(self):
-    self.reset()
-    return self
+    for identifier in self.logreader_identifiers:
+      yield from _LogFileReader(identifier)
 
-  def __next__(self):
-    return next(self.chain)
+  def _run_on_segment(self, func, identifier):
+    lr = _LogFileReader(identifier)
+    return func(lr)
+
+  def run_across_segments(self, num_processes, func):
+    with multiprocessing.Pool(num_processes) as pool:
+      ret = []
+      for p in pool.map(partial(self._run_on_segment, func), self.logreader_identifiers):
+        ret.extend(p)
+      return ret
 
   def reset(self):
-    self.lrs = self._logreaders_from_identifier(self.identifier)
-    self.chain = itertools.chain(*self.lrs)
+    self.logreader_identifiers = self._parse_identifiers(self.identifier)
+    invalid_count = len(get_invalid_files(self.logreader_identifiers))
+    assert invalid_count == 0, f"{invalid_count}/{len(self.logreader_identifiers)} invalid log(s) found, please ensure all logs \
+are uploaded or auto fallback to qlogs with '/a' selector at the end of the route name."
 
   @staticmethod
   def from_bytes(dat):
     return _LogFileReader("", dat=dat)
+
+
+def get_first_message(lr: LogIterable, msg_type):
+  return next(filter(lambda m: m.which() == msg_type, lr), None)
 
 
 if __name__ == "__main__":
