@@ -87,15 +87,15 @@ kj::Array<capnp::word> logger_build_init_data() {
 
 std::string logger_get_route_name() {
   Params params;
-  std::string cntstr = params.get("RouteCount");
-  uint16_t cnt = 0;
+  uint32_t cnt;
   try {
-    cnt = std::stol(cntstr);
+    cnt = std::stol(params.get("RouteCount"));
   } catch (std::exception &e) {
+    cnt = 0;
   }
   params.put("RouteCount", std::to_string(cnt + 1));
 
-  return util::string_format("%04x--aabbccddeeff", cnt);
+  return util::string_format("%08x--d800a8444b", cnt);
 }
 
 static void log_sentinel(LoggerState *log, SentinelType type, int eixt_signal = 0) {
