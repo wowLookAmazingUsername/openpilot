@@ -95,12 +95,7 @@ std::string logger_get_route_name() {
   }
   params.put("RouteCount", std::to_string(cnt + 1));
 
-  std::string ret;
-
-  ret = "aabbccddeeff";
-  ret += util::string_format("--%04x", cnt);
-
-  return ret;
+  return util::string_format("%04x--aabbccddeeff", cnt);
 }
 
 static void log_sentinel(LoggerState *log, SentinelType type, int eixt_signal = 0) {
