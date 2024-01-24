@@ -85,15 +85,15 @@ kj::Array<capnp::word> logger_build_init_data() {
   return capnp::messageToFlatArray(msg);
 }
 
-std::string logger_get_route_name() {
+std::string logger_get_identifier(std::string key) {
   Params params;
   uint32_t cnt;
   try {
-    cnt = std::stol(params.get("RouteCount"));
+    cnt = std::stol(params.get(key));
   } catch (std::exception &e) {
     cnt = 0;
   }
-  params.put("RouteCount", std::to_string(cnt + 1));
+  params.put(key, std::to_string(cnt + 1));
 
   return util::string_format("%08x--d800a8444b", cnt);
 }
@@ -107,7 +107,7 @@ static void log_sentinel(LoggerState *log, SentinelType type, int eixt_signal = 
 }
 
 LoggerState::LoggerState(const std::string &log_root) {
-  route_name = logger_get_route_name();
+  route_name = logger_get_identifier("RouteCount");
   route_path = log_root + "/" + route_name;
   init_data = logger_build_init_data();
 }
