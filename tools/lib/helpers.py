@@ -7,7 +7,8 @@ TIME_FMT = "%Y-%m-%d--%H-%M-%S"
 class RE:
   DONGLE_ID =  r'(?P<dongle_id>[a-z0-9]{16})'
   TIMESTAMP = r'(?P<timestamp>[0-9]{4}-[0-9]{2}-[0-9]{2}--[0-9]{2}-[0-9]{2}-[0-9]{2})'
-  ROUTE_NAME = r'(?P<route_name>{}[|_/]{})'.format(DONGLE_ID, TIMESTAMP)
+  ROUTE_ID_V2 = r'(?P<count>[0-9]{8})--(?P<uid>[a-z0-9]{10})'
+  ROUTE_NAME = r'(?P<route_name>{}[|_/](?P<route_id>(?:{}|{})))'.format(DONGLE_ID, TIMESTAMP, ROUTE_ID_V2)
   SEGMENT_NAME = r'{}(?:--|/)(?P<segment_num>[0-9]+)'.format(ROUTE_NAME)
   INDEX = r'-?[0-9]+'
   SLICE = r'(?P<start>{})?:?(?P<end>{})?:?(?P<step>{})?'.format(INDEX, INDEX, INDEX)
