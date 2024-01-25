@@ -13,7 +13,7 @@ class RE:
   INDEX = r'-?[0-9]+'
   SLICE = r'(?P<start>{})?:?(?P<end>{})?:?(?P<step>{})?'.format(INDEX, INDEX, INDEX)
   SEGMENT_RANGE = r'{}(?:--|/)?(?P<slice>({}))?/?(?P<selector>([qra]))?'.format(ROUTE_NAME, SLICE)
-  BOOTLOG_NAME = ROUTE_NAME
+  BOOTLOG_NAME = ROUTE_NAME.replace('route_id', 'bootlog_id')
 
   EXPLORER_FILE = r'^(?P<segment_name>{})--(?P<file_name>[a-z]+\.[a-z0-9]+)$'.format(SEGMENT_NAME)
   OP_SEGMENT_DIR = r'^(?P<segment_name>{})$'.format(SEGMENT_NAME)
